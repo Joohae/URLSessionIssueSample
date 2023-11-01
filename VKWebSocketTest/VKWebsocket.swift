@@ -35,6 +35,7 @@ public actor VKWebsocket {
   }
 
   deinit {
+    print("deinit \(type(of: self))")
     task?.cancel()
     session?.finishTasksAndInvalidate()
   }
@@ -131,6 +132,10 @@ private class WebsocketURLSessionDelegate: NSObject, URLSessionWebSocketDelegate
 
   init(websocket: VKWebsocket) {
     self.websocket = websocket
+  }
+
+  deinit {
+    print("deinit \(type(of: self))")
   }
 
   func urlSession(_ session: URLSession,
