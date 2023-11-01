@@ -1,10 +1,3 @@
-//
-//  VKWebsocket.swift
-//  VerkadaPlayer
-//
-//  Created by Nathan Wallace on 6/21/22.
-//
-
 import Foundation
 
 public protocol WebsocketDelegate: AnyObject {
@@ -37,15 +30,8 @@ public actor VKWebsocket {
   private var messagesQueue: [URLSessionWebSocketTask.Message] = []
   private lazy var urlSessionDelegate = WebsocketURLSessionDelegate(websocket: self)
 
-  // Handling reconnection
-  private var reconnectTask: Task<Void, Never>?
-  private var retryCount = 0
-  private let baseReconnectWait = 0.25
-  private let maxReconnectWait = 16.0
-
-  public init(request: URLRequest, reconnectOnFailure: Bool = true) {
+  public init(request: URLRequest) {
     self.request = request
-    self.reconnectOnFailure = reconnectOnFailure
   }
 
   deinit {
@@ -60,8 +46,6 @@ public actor VKWebsocket {
   public func connect() {
     guard connectionState == .disconnected else { return }
     connectionState = .connecting
-    reconnectTask?.cancel()
-    reconnectTask = nil
     session = URLSession(configuration: .ephemeral,
                          delegate: urlSessionDelegate,
                          delegateQueue: nil)
@@ -116,25 +100,11 @@ public actor VKWebsocket {
 
   private func handleFailure() {
     disconnect()
-
-    guard reconnectOnFailure else { return }
-    reconnectTask = Task {
-      let waitTime = min(baseReconnectWait * (pow(2.0, Double(self.retryCount))), maxReconnectWait)
-      do {
-        try await Task.sleep(nanoseconds: UInt64(waitTime * Double(NSEC_PER_SEC)))
-        try Task.checkCancellation()
-      } catch {
-        // An error signals that the task has been cancelled
-        return
-      }
-      self.retryCount += 1
-      self.connect()
-    }
   }
 
   fileprivate func websocketConnectionDidOpen() {
     connectionState = .connected
-    retryCount = 0
+
     awaitMessage()
 
     messagesQueue.forEach { message in
